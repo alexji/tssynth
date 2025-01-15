@@ -1,2 +1,47 @@
 # tssynth
 Python wrapper for running turbospectrum (in LTE and NLTE)
+
+## Usage (currently aspirational)
+Method 1: specify stellar parameters
+
+Use the MPIA Bergemann Group's default atomic data linelist to do this
+```
+import tssynth
+
+Teff, logg, vt, MH = 5000, 2.00, 1.50, -2.00
+wmin, wmax, dw = 5000, 5100, 0.1
+
+# can specify XFedict as either element or atomic number
+# Here we say [Mg/Fe] = +0.8, [Ti/Fe] = -0.5
+XFedict = {"Mg":0.8, 22:-0.5}
+
+# Synthesize LTE
+wave, flux_lte = tssynth.run_synth_lte(wmin, wmax, dw, 
+                                        Teff=Teff, logg=logg, vt=vt, MH=MH, 
+                                        XFedict=XFedict)
+
+# Synthesize NLTE
+# This will check 
+NLTE_data_dir = /path/to/MPIA/grids
+wave, flux_nlte = tssynth.run_synth_nlte(wmin, wmax, dw, 
+                                        Teff=Teff, logg=logg, vt=vt, MH=MH,
+                                        XFedict=XFedict,
+                                        NLTE_data_dir=NLTE_data_dir)
+```
+
+Method 2: specify stellar atmosphere file
+```
+## Interpolation will be figured out later
+# atmosphere_fname = "atmosphere.txt"
+# tssynth.interpolate_model_atmosphere(atmosphere_fname, Teff, logg, vt, MH)
+
+wave, flux_lte = tssynth.run_synth_lte(wmin, wmax, dw,
+                                        model_atmosphere="atmosphere.txt", 
+                                        XFedict=XFedict)
+
+wave, flux_nlte = tssynth.run_synth_nlte(wmin, wmax, dw,
+                                        model_atmosphere="atmosphere.txt",
+                                        XFedict=XFedict,
+                                        NLTE_data_dir=NLTE_data_dir)
+```
+
