@@ -4,8 +4,8 @@ import tempfile
 import subprocess
 from . import utils, marcs
 
-TURBOSPECTRUM_PATH = os.environ.get('TURBOSPECTRUM_PATH', None)
-TURBODATA_PATH = os.environ.get('TURBODATA_PATH', os.path.join(TURBOSPECTRUM_PATH, '../DATA'))
+TSEXEC_PATH = os.environ.get('TSEXEC_PATH', None)
+TSDATA_PATH = os.environ.get('TSDATA_PATH', os.path.join(TSEXEC_PATH, '../DATA'))
 TWD_BASE = os.environ.get('TWD_BASE', None)
 TSLINELIST_PATH = os.environ.get('TSLINELIST_PATH', None)
 TSDEPCOEFF_PATH = os.environ.get('TSDEPCOEFF_PATH', None)
@@ -89,7 +89,7 @@ def run_synth_lte(wmin, wmax, dw,
     
     ## Set up the working directory
     if not os.path.exists(os.path.join(twd, 'DATA')):
-        os.symlink(TURBODATA_PATH, os.path.join(twd, 'DATA'))
+        os.symlink(TSDATA_PATH, os.path.join(twd, 'DATA'))
 
     ## Run babsma_lu for Model Opacity
     kws_babsma_lu = dict(twd=twd,
@@ -137,7 +137,7 @@ def run_babsma_lu(twd, wmin, wmax, dwl,
                   verbose=False):
     """
     - create babsma_lu parameter file
-    - call basbma_lu from TURBOSPECTRUM_PATH
+    - call basbma_lu from TSEXEC_PATH
     - return filename of modelopac
     """
     scriptfilename= os.path.join(twd,'babsma.par')
@@ -164,7 +164,7 @@ def run_babsma_lu(twd, wmin, wmax, dwl,
         stdout= open('/dev/null', 'w')
         stderr= subprocess.STDOUT
     try:
-        p= subprocess.Popen([os.path.join(TURBOSPECTRUM_PATH, 'babsma_lu')],
+        p= subprocess.Popen([os.path.join(TSEXEC_PATH, 'babsma_lu')],
                             cwd=twd,
                             stdin=subprocess.PIPE,
                             stdout=stdout,
@@ -221,7 +221,7 @@ def run_bsyn_lu(twd, wmin, wmax, dwl, costheta, modelfilename, marcsfile,
         stdout= open('/dev/null', 'w')
         stderr= subprocess.STDOUT
     try:
-        p= subprocess.Popen([os.path.join(TURBOSPECTRUM_PATH, 'bsyn_lu')],
+        p= subprocess.Popen([os.path.join(TSEXEC_PATH, 'bsyn_lu')],
                             cwd=twd,
                             stdin=subprocess.PIPE,
                             stdout=stdout,
