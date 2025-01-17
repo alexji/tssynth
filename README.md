@@ -1,6 +1,22 @@
 # tssynth
 Python wrapper for running turbospectrum (in LTE and NLTE)
 
+## Installation
+- Install https://github.com/bertrandplez/Turbospectrum_NLTE
+  - Make sure you have `gfortran`
+  - Clone, go into `exec-gf`, and run `make`
+  - There should now be `babsma_lu` and `bsyn_lu` in that directory
+- Use tssynth_conda.yml to create a new conda environment and activate it
+- Install tssynth
+  - For now/development: clone the repository, `python -m pip install -e .`
+  - Eventually: `pip install tssynth`
+- Specify environment variables to code and data locations
+- Download relevant files:
+  - Linelists (Default VALD is included with `tssynth`)
+  - MARCS model atmosphere grid (TODO)
+  - Departure coefficient grids
+
+
 ## Usage (currently aspirational)
 Method 1: specify stellar parameters
 
