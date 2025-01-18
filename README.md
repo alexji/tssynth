@@ -10,7 +10,12 @@ Python wrapper for running turbospectrum (in LTE and NLTE)
 - Install tssynth
   - For now/development: clone the repository, `python -m pip install -e .`
   - Eventually: `pip install tssynth`
-- Specify environment variables to code and data locations
+- Specify environment variables to needed paths (we specify this all in `src/tssynth/__init__.py` so they print out during imports)
+  - `TSEXEC_PATH`: path to directory including `babsma_lu` and `bsyn_lu`
+  - `TWD_BASE`: path to where temporary directories will be written
+  - `TSLINELIST_PATH`: path to directory containing linelists (should be in `tssynth`)
+  - `TSDEPCOEFF_PATH`: path to directory containing departure coefficients. Only needed for NLTE. This will be very big if you actually download everything.
+  - `ALLMARCS_PATH`: path to directory containing full library of MARCS model atmospheres. Only needed if you will interpolate model atmospheres.
 - Download relevant files:
   - Linelists (Default VALD is included with `tssynth`)
   - MARCS model atmosphere grid (TODO)
