@@ -2,7 +2,7 @@ import os
 import numpy as np
 import re
 
-def parse_marcs_model(fname):
+def parse_marcs_model(fname, get_all=False):
     with open(fname, "r") as fp:
         lines = [x.strip() for x in fp.readlines()]
     header = {
@@ -62,4 +62,7 @@ def parse_marcs_model(fname):
     assert lines[cols_2_index + num_depth_points + 1].startswith("Assorted logarithmic partial pressures")
     partial_pressures_lines = lines[cols_2_index + num_depth_points + 1:]
     
-    return header, abundances, model_structure, partial_pressures_lines
+    if get_all:
+        return header, model_structure, abundances, partial_pressures_lines
+    else:
+        return header, model_structure

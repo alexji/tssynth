@@ -318,7 +318,7 @@ def _write_script(scriptfilename,
 def parse_model_atmosphere_file_params(model_atmosphere_file):
     with open(model_atmosphere_file,"r") as fp:
         pass
-    header, abundances, model_structure, partial_pressures_lines = marcs.parse_marcs_model(model_atmosphere_file)
+    header, _ = marcs.parse_marcs_model(model_atmosphere_file)
     Teff = header["Teff"]
     logg = header["logg"]
     vt = header["vturb"]
