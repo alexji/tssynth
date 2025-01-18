@@ -19,6 +19,7 @@ dependencies = [
   "numpy",
   "tqdm",
   "requests",
+  "astropy",
 ]
 
 [project.urls]
