@@ -177,3 +177,6 @@ fortran/interpol_modeles_nlte
 fortran/interpol-nlte.script
 fortran/interpol.script
 data/marcs_standard_models.npz
+# Removing this for now but may add it in later
+# This would replace the fortran interpolator but I don't really want to do it yet
+src/tssynth/marcs_interpol.py 
