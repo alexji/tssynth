@@ -172,3 +172,8 @@ cython_debug/
 
 **~
 **.DS_store
+fortran/interpol_modeles
+fortran/interpol_modeles_nlte
+fortran/interpol-nlte.script
+fortran/interpol.script
+data/marcs_standard_models.npz
