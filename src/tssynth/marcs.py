@@ -1,6 +1,8 @@
 import numpy as np
 import os, re, time, glob
+import subprocess
 from astropy.table import Table
+from . import utils
 
 def compress_marcs_standard_models(output_directory):
     """
@@ -153,16 +155,253 @@ def parse_marcs_model(fname, get_all=False):
         return header, model_structure, abundances, partial_pressures_lines
     else:
         return header, model_structure
-    
 
-def interpolate_marcs_model(Teff, logg, MH):
-    """
-    Interpolates from the MARCS model atmosphere grid to a new set of parameters.
-    Only works for "st" (standard) MARCS models, and assumes vt = 2.0.
-    
-    This calls the Fortran program `interpol_modeles_nlte` which is in Turbospectrum_NLTE/interpolator.
-    Requires the environment variable MARCS_GRID to be set to the directory containing the MARCS grid.
-    """
-    MARCS_GRID = os.environ.get("MARCS_GRID")
-
+def write_marcs_model(header, model_structure):
     raise NotImplementedError("This function is not implemented yet.")
+
+def interpolate_marcs_model(Teff, logg, MH, outpath, spherical=True):
+    """
+    Runs the fortran interpolator (in TSINTERP_PATH) to interpolate the MARCS models.
+    Looks in the ALLMARCS_PATH for the MARCS models.
+
+    Parameters:
+    -----------
+    Teff : float
+        Effective temperature of the star in Kelvin.
+    logg : float
+        Surface gravity of the star
+    MH : float
+        Metallicity [M/H] of the star.
+    outpath : str
+        Path where the interpolated model will be saved.
+    spherical : bool, optional
+        If True, use spherical MARCS models. If False, use plane-parallel MARCS models. Default is True.
+        logg > 3.5 is not available for spherical models and logg < 3.0 is not available for plane-parallel models.
+        We do not automatically specify which one, the user must choose correctly.
+    Raises:
+    -------
+    ValueError
+        If the input parameters are out of the valid range for MARCS models.
+    Notes:
+    ------
+    This function calls the Fortran program `interpol_modeles` which is in Turbospectrum_NLTE/interpolator.
+    Example:
+    --------
+    >>> interpolate_marcs_model(5777, 4.44, 0.0, "/path/to/output.interpol")
+    """
+
+    ALLMARCS_PATH = os.environ.get("ALLMARCS_PATH")
+
+    ## Validate input parameters
+    if spherical and logg > 3.5: raise ValueError("No spherical MARCS models for logg > 3.5.")
+    if not spherical and logg < 3.0: raise ValueError("No plane-parallel MARCS models for logg < 3.0.")
+    if logg > 5.5: raise ValueError("No MARCS models for logg > 5.5.")
+    if logg < -0.5: raise ValueError("No MARCS models for logg < -0.5.")
+    if MH > 0.5: raise ValueError("No MARCS models for MH > 0.5.")
+    if MH < -5.0: raise ValueError("No MARCS models for MH < -5.0.")
+    if Teff > 8000: raise ValueError("No MARCS models for Teff > 8000.")
+    if Teff < 2500: raise ValueError("No MARCS models for Teff < 2500.")
+
+    sstr = "s" if spherical else "p"
+    massstr = "1.0" if spherical else "0.0"
+    
+    ## Search through input model atmospheres for models to interpolate
+    fnames = np.sort(glob.glob(f"{ALLMARCS_PATH}/{sstr}*_st_*.mod"))
+    def parse_marcs_filenames(fname):
+        """
+        Parses the MARCS filenames to extract the stellar parameters.
+        """
+        parts = os.path.basename(fname).split("_")
+        Teff = int(parts[0][1:])
+        logg = float(parts[1][1:])
+        MH = float(parts[5][1:])
+        return Teff, logg, MH
+    marcspoints = np.array([parse_marcs_filenames(fname) for fname in fnames])
+    
+    points = _find_surrounding_points(marcspoints, Teff, logg, MH)
+    selected_files = []
+    for point in points:
+        Teff_point, logg_point, MH_point = point
+        fname_start = f"{sstr}{Teff_point:4.0f}_g{logg_point:+4.1f}_m{massstr}_t02_st_z{MH_point:+5.2f}"
+        for fname in fnames:
+            if os.path.basename(fname).startswith(fname_start):
+                selected_files.append(fname)
+                break
+        else:
+            raise ValueError(f"Could not find {fname_start} in {ALLMARCS_PATH}.\n{points}")
+
+    ## Run the fortran interpolator
+    _run_interpolator_lte(Teff, logg, MH, selected_files,
+                          outpath, verbose=False)
+    
+    assert os.path.exists(outpath), f"Interpolator did not create the output file {outpath}."
+    return outpath
+
+def _find_surrounding_points(marcspoints, Teff, logg, MH, max_expansions=99):
+    # Extract unique values for each axis
+    unique_Teffs = np.unique(marcspoints[:, 0])
+    unique_loggs = np.unique(marcspoints[:, 1])
+    unique_MHs = np.unique(marcspoints[:, 2])
+    
+    # Initial indices for lower and upper bounds
+    Teff_lower_idx = np.where(unique_Teffs <= Teff)[0].max()
+    Teff_upper_idx = np.where(unique_Teffs >= Teff)[0].min()
+    logg_lower_idx = np.where(unique_loggs <= logg)[0].max()
+    logg_upper_idx = np.where(unique_loggs >= logg)[0].min()
+    MH_lower_idx = np.where(unique_MHs <= MH)[0].max()
+    MH_upper_idx = np.where(unique_MHs >= MH)[0].min()
+
+    # Initialize points and flags
+    points = []
+    found = False
+
+    num_expansions = 0
+    while not found:
+        # Try to gather points from the current cuboid
+        failures = []
+        for ix in [Teff_lower_idx, Teff_upper_idx]:
+            for iy in [logg_lower_idx, logg_upper_idx]:
+                for iz in [MH_lower_idx, MH_upper_idx]:
+                    candidate = (unique_Teffs[ix], unique_loggs[iy], unique_MHs[iz])
+                    if candidate in marcspoints:
+                        points.append(candidate)
+                    else:
+                        failures.append((ix, iy, iz))
+
+        if len(points) == 8:
+            found = True
+            break
+
+        # If not all points found, analyze failures and expand the cuboid incrementally
+        n_faces = 6  # 2 faces for each of Teff, logg, MH
+        failures_per_face = []
+        for face_no in range(n_faces):
+            failure_count = 0
+            parameter_no = face_no // 2  # Which parameter (Teff/logg/MH)
+            option_no = face_no % 2      # Which face (lower/upper)
+            for (ix, iy, iz) in failures:
+                vertex_face_check = [
+                    ix == Teff_lower_idx if option_no == 0 else ix == Teff_upper_idx,
+                    iy == logg_lower_idx if option_no == 0 else iy == logg_upper_idx,
+                    iz == MH_lower_idx if option_no == 0 else iz == MH_upper_idx,
+                ]
+                if vertex_face_check[parameter_no]:
+                    failure_count += 1
+            failures_per_face.append((failure_count, parameter_no, option_no))
+
+        # Find the face with the most failures and expand it
+        failures_per_face.sort(key=lambda x: x[0], reverse=True)
+        _, parameter_no, option_no = failures_per_face[0]
+
+        # Expand the face
+        if parameter_no == 0:  # Teff
+            if option_no == 0:  # Lower face
+                Teff_lower_idx = max(Teff_lower_idx - 1, 0)
+            else:  # Upper face
+                Teff_upper_idx = min(Teff_upper_idx + 1, len(unique_Teffs) - 1)
+        elif parameter_no == 1:  # logg
+            if option_no == 0:  # Lower face
+                logg_lower_idx = max(logg_lower_idx - 1, 0)
+            else:  # Upper face
+                logg_upper_idx = min(logg_upper_idx + 1, len(unique_loggs) - 1)
+        elif parameter_no == 2:  # MH
+            if option_no == 0:  # Lower face
+                MH_lower_idx = max(MH_lower_idx - 1, 0)
+            else:  # Upper face
+                MH_upper_idx = min(MH_upper_idx + 1, len(unique_MHs) - 1)
+        num_expansions += 1
+        if num_expansions > max_expansions:
+            raise RuntimeError(f"Failed to find surrounding points after {max_expansions} face expansions; {Teff}, {logg}, {MH}.")
+
+    return np.array(points)
+
+def _run_interpolator_lte(Teff, logg, MH, marcs_model_list,
+                        outpath, verbose=False):
+    """
+    Runs the Fortran interpolator to interpolate the MARCS models.
+    Based on https://github.com/TSFitPy-developers/TSFitPy/blob/main/scripts/turbospectrum_class_nlte.py
+            _interpolate_one_atmosphere
+    """
+    interp_exec_path = os.environ.get("TSINTERP_PATH")
+    
+    if verbose:
+        stdout = None
+        stderr = subprocess.STDOUT
+    else:
+        stdout = open('/dev/null', 'w')
+        stderr = subprocess.STDOUT
+    
+    # Write configuration input for interpolator
+    interpol_config = ""
+    for marcs_model in marcs_model_list:
+        assert os.path.exists(marcs_model), marcs_model
+        interpol_config += "'{}'\n".format(marcs_model)
+    interpol_config += "'{}'\n".format(outpath) # .interpol output file
+    interpol_config += "'/dev/null'\n" # .alt output file, not needed
+    interpol_config += "{}\n".format(Teff)
+    interpol_config += "{}\n".format(logg)
+    interpol_config += "{}\n".format(MH)
+    interpol_config += ".false.\n"  
+    interpol_config += ".false.\n"  
+    interpol_config += "'/dev/null'\n" # .test output file, not needed
+
+    # Now we run the FORTRAN model interpolator
+    try:
+        p = subprocess.Popen([os.path.join(interp_exec_path, 'interpol_modeles')],
+                            stdin=subprocess.PIPE, stdout=stdout, stderr=stderr)
+        p.stdin.write(bytes(interpol_config, 'utf-8'))
+        stdout, stderr = p.communicate()
+    except subprocess.CalledProcessError as e:
+        print(e)
+        raise RuntimeError("MARCS model atmosphere interpolation failed. Config:\n"+interpol_config)
+
+    return outpath
+
+def _run_interpolator_nlte(Teff, logg, MH, marcs_model_list):
+    """
+    Runs the Fortran interpolator for both the MARCS model atmospheres
+    and the NLTE departure coefficient grids.
+    Based on https://github.com/TSFitPy-developers/TSFitPy/blob/main/scripts/turbospectrum_class_nlte.py
+            _interpolate_one_atmosphere
+    """
+    # for element in self.model_atom_file:
+    #     element_abundance = self._get_element_abundance(element)
+    #     # Write configuration input for interpolator
+    #     interpol_config = ""
+    #     for line in marcs_model_list:
+    #         interpol_config += "'{}{}'\n".format(self.marcs_grid_path, line)
+    #     interpol_config += "'{}.interpol'\n".format(output)
+    #     interpol_config += "'{}.alt'\n".format(output)
+    #     interpol_config += "'{}_{}_coef.dat'\n".format(output, element)  # needed for nlte interpolator
+    #     interpol_config += "'{}'\n".format(os_path.join(self.departure_file_path, self.depart_bin_file[
+    #         element]))  # needed for nlte interpolator
+    #     interpol_config += "'{}'\n".format(os_path.join(self.departure_file_path, self.depart_aux_file[
+    #         element]))  # needed for nlte interpolator
+    #     interpol_config += "{}\n".format(self.aux_file_length_dict[element])
+    #     interpol_config += "{}\n".format(self.t_eff)
+    #     interpol_config += "{}\n".format(self.log_g)
+    #     interpol_config += "{:.6f}\n".format(round(float(self.metallicity), 6))
+    #     interpol_config += "{:.6f}\n".format(round(float(element_abundance), 6))
+    #     interpol_config += ".false.\n"  # test option - set to .true. if you want to plot comparison model (model_test)
+    #     interpol_config += ".false.\n"  # MARCS binary format (.true.) or MARCS ASCII web format (.false.)?
+    #     interpol_config += "'{}.test'\n".format(output)
+
+    #     # Now we run the FORTRAN model interpolator
+    #     try:
+    #         if self.atmosphere_dimension == "1D":
+    #             p = subprocess.Popen([os_path.join(self.interpol_path, 'interpol_modeles_nlte')],
+    #                                     stdin=subprocess.PIPE, stdout=stdout, stderr=stderr)
+    #             p.stdin.write(bytes(interpol_config, 'utf-8'))
+    #             stdout, stderr = p.communicate()
+    #         elif self.atmosphere_dimension == "3D":
+    #             p = subprocess.Popen([os_path.join(self.interpol_path, 'interpol_multi_nlte')],
+    #                                     stdin=subprocess.PIPE, stdout=stdout, stderr=stderr)
+    #             p.stdin.write(bytes(interpol_config, 'utf-8'))
+    #             stdout, stderr = p.communicate()
+    #     except subprocess.CalledProcessError:
+    #         return {
+    #             "interpol_config": interpol_config,
+    #             "errors": "MARCS model atmosphere interpolation failed."
+    #         }
+    raise NotImplementedError("NLTE interpolation not implemented yet.")
+    

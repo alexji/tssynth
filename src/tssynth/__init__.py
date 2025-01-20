@@ -2,6 +2,7 @@ import os, shutil
 
 ## HARDCODE during development
 os.environ["TSEXEC_PATH"] = "/Users/alexji/lib/Turbospectrum_NLTE/exec-gf"
+os.environ["TSINTERP_PATH"] = "/Users/alexji/lib/tssynth/fortran"
 os.environ["TWD_BASE"] = "/Users/alexji/.tssynth"
 os.environ["TSLINELIST_PATH"] = "/Users/alexji/lib/tssynth/data/linelists"
 os.environ["TSDEPCOEFF_PATH"] = "/Users/alexji/bergemann_departure_coefficients"
@@ -13,6 +14,13 @@ if TSEXEC_PATH is None:
 if not os.path.exists(TSEXEC_PATH):
     raise ValueError(f"{TSEXEC_PATH} does not exist.")
 print(f"Using Turbospectrum from {TSEXEC_PATH}")
+
+TSINTERP_PATH = os.environ.get('TSINTERP_PATH', None)
+if TSINTERP_PATH is None:
+    raise ValueError("Environment variable TSINTERP_PATH is not set.")
+if not os.path.exists(TSINTERP_PATH):
+    raise ValueError(f"{TSINTERP_PATH} does not exist.")
+print(f"Using interpolation scripts from {TSINTERP_PATH}")
 
 TWD_BASE = os.environ.get('TWD_BASE', None)
 if TWD_BASE is None:

@@ -1,9 +1,9 @@
 from tssynth import marcs
 
-model_atmosphere_file_1 = "/Users/alexji/lib/tssynth/tests/s5000_g+2.0_m1.0_t02_st_z-2.00_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod"
-model_atmosphere_file_2 = "/Users/alexji/lib/tssynth/tests/p4000_g+4.5_m0.0_t01_st_z+0.00_a+0.00_c+0.00_n+0.00_o+0.00_r+0.00_s+0.00.mod"
-model_atmosphere_file_3 = "/Users/alexji/lib/tssynth/tests/p7750_g+4.5_m0.0_t02_st_z-0.25_a+0.10_c+0.00_n+0.00_o+0.10_r+0.00_s+0.00.mod"
-model_atmosphere_file_4 = "/Users/alexji/lib/tssynth/tests/s7500_g+3.5_m1.0_t05_st_z-5.00_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod"
+model_atmosphere_file_1 = "/Users/alexji/lib/tssynth/tests/model_atmospheres/s5000_g+2.0_m1.0_t02_st_z-2.00_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod"
+model_atmosphere_file_2 = "/Users/alexji/lib/tssynth/tests/model_atmospheres/p4000_g+4.5_m0.0_t01_st_z+0.00_a+0.00_c+0.00_n+0.00_o+0.00_r+0.00_s+0.00.mod"
+model_atmosphere_file_3 = "/Users/alexji/lib/tssynth/tests/model_atmospheres/p7750_g+4.5_m0.0_t02_st_z-0.25_a+0.10_c+0.00_n+0.00_o+0.10_r+0.00_s+0.00.mod"
+model_atmosphere_file_4 = "/Users/alexji/lib/tssynth/tests/model_atmospheres/s7500_g+3.5_m1.0_t05_st_z-5.00_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod"
 
 def test_parse_marcs_model_1():
     header, model_structure = marcs.parse_marcs_model(model_atmosphere_file_1)
@@ -52,14 +52,22 @@ def test_parse_marcs_model_3():
     "s5750_g+1.5_m1.0_t05_st_z-0.75_a+0.30_c+0.00_n+0.00_o+0.30_r+0.00_s+0.00.mod",
     "s8000_g+2.0_m1.0_t02_st_z-3.00_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod"]
     for fname in fnames:
-        header, model_structure = marcs.parse_marcs_model("/Users/alexji/lib/tssynth/tests/" + fname)
+        header, model_structure = marcs.parse_marcs_model("/Users/alexji/lib/tssynth/tests/model_atmospheres/" + fname)
         
 
-def test_interpolation():
+def test_interpolation_1():
     ## interpolate away from any grid points
     # Teff, logg, MH
-    new_model_atmosphere_file = marcs.interpolate_marcs_model(5050, 2.1, -2.1)
-
-    ## interpolate at a grid point
-    new_model_atmosphere_file = marcs.interpolate_marcs_model(5000, 2.0, -2.0)
+    new_model_atmosphere_file = marcs.interpolate_marcs_model(5050, 2.1, -2.1, "/dev/null", spherical=True)
+    new_model_atmosphere_file = marcs.interpolate_marcs_model(5502, 3.21, -3.95, "/dev/null", spherical=False)
+    new_model_atmosphere_file = marcs.interpolate_marcs_model(5502, 3.21, -3.95, "/dev/null", spherical=True)
     
+    
+def test_interpolation_2():
+    ## interpolate at a grid point
+    new_model_atmosphere_file = marcs.interpolate_marcs_model(5000, 2.0, -2.0, "/dev/null", spherical=True)
+    new_model_atmosphere_file = marcs.interpolate_marcs_model(5000, 4.5, -0.25, "/dev/null", spherical=False)
+
+def test__find_surrounding_points():
+    ## TODO: check the case that is failing, i.e. when there is a missing model and it's not expanding properly
+    pass

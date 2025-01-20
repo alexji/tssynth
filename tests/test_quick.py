@@ -2,7 +2,7 @@ import tssynth
 from tssynth import synthesizer
 import shutil
 
-model_atmosphere_file = "/Users/alexji/lib/tssynth/tests/s5000_g+2.0_m1.0_t02_st_z-2.00_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod"
+model_atmosphere_file = "/Users/alexji/lib/tssynth/tests/model_atmospheres/s5000_g+2.0_m1.0_t02_st_z-2.00_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod"
 
 def test_simple_methods():
     print(synthesizer.get_default_linelist_filenames())
