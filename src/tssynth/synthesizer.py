@@ -12,12 +12,13 @@ TSDEPCOEFF_PATH = os.environ.get('TSDEPCOEFF_PATH', None)
 ALLMARCS_PATH = os.environ.get('ALLMARCS_PATH', None)
 
 def run_synth_lte(wmin, wmax, dw,
-                  Teff=None, logg=None, vt=None, MH=None, aFe=None,
+                  Teff=None, logg=None, vt=2.0, MH=None, aFe=None,
                   model_atmosphere_file=None,
                   linelist_filenames=None,
                   XFedict=None, 
                   modelopac_file=None,
-                  twd=None, delete_twd=False):
+                  twd=None, delete_twd=False,
+                  spherical=None):
     """
     Run LTE spectrum synthesis with Turbospectrum.
 
@@ -55,16 +56,26 @@ def run_synth_lte(wmin, wmax, dw,
         sys.stdout.write(f"Temporary working directory: {twd}")
 
     ## Model Atmosphere File
-    if any(param is not None for param in [Teff, logg, vt, MH]):
+    if any(param is not None for param in [Teff, logg, MH]):
+        assert vt == 2.0, f"for now vt must be 2.0 for atmosphere interpolation, specified {vt}"
         ## Specify the parameters here
-        if not all(param is not None for param in [Teff, logg, vt, MH]):
-            raise ValueError("If any of Teff, logg, vt, or MH is provided, they all need to be provided.")
+        if not all(param is not None for param in [Teff, logg, MH]):
+            raise ValueError("If any of Teff, logg, or MH is provided, they all need to be provided.")
         if aFe is None:
             if MH < -1.0: aFe = 0.4
             elif -1.0 < MH < 0.0: aFe = -0.4 * MH
             else: aFe = 0.0
-        model_atmosphere_file = "tmp.txt" # TODO 
-        ## TODO interpolate a model atmosphere and write the file
+        ## Automatically choose between spherical and plane parallel, arbitrary bound for now
+        if spherical is None: spherical = logg <= 3.25
+        elif spherical:
+            assert logg <= 3.5, f"for spherical models, logg <= 3.5, specified {logg}"
+        else:
+            assert logg >= 3.5, f"for plane parallel models, logg >= 3.5, specified {logg}"
+        
+        ## Interpolate a model atmosphere and save into the twd
+        model_atmosphere_file = os.path.join(twd, "marcs.interp")
+        marcs.interpolate_marcs_model(Teff, logg, MH, model_atmosphere_file, spherical=spherical)
+        
     else:
         ## Specify a model atmosphere file
         assert model_atmosphere_file is not None, model_atmosphere_file

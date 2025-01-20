@@ -60,6 +60,8 @@ def test_interpolation_1():
     # Teff, logg, MH
     new_model_atmosphere_file = marcs.interpolate_marcs_model(5050, 2.1, -2.1, "/dev/null", spherical=True)
     new_model_atmosphere_file = marcs.interpolate_marcs_model(5502, 3.21, -3.95, "/dev/null", spherical=False)
+    # TODO this one is failing right now. It's because the interpolation is not expanding the grid properly when missing models
+    # The missing model is at MH=-4.0
     new_model_atmosphere_file = marcs.interpolate_marcs_model(5502, 3.21, -3.95, "/dev/null", spherical=True)
     
     

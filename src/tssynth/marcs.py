@@ -7,6 +7,9 @@ from . import utils
 def compress_marcs_standard_models(output_directory):
     """
     Compresses the standard MARCS models into a single file.
+    This is not used right now, but someday I would like to replace
+    the fortran interpolators with python interpolators, and this will
+    be helpful for that.
     """
     N_layer = 56
 
