@@ -1,5 +1,12 @@
 import requests
 from tqdm import tqdm
+import os
+import yaml
+import pkg_resources
+
+TSDEPCOEFF_PATH = os.environ.get('TSDEPCOEFF_PATH', None)
+ALLMARCS_PATH = os.environ.get('ALLMARCS_PATH', None)
+
 def download_file(url, local_path):
     """
     Downloads a file from the given URL and saves it to the specified local path.
@@ -7,7 +14,7 @@ def download_file(url, local_path):
     :param url: URL of the file to download
     :param local_path: Path where the downloaded file will be saved
     """
-    response = requests.get(url, stream=True)
+    response = requests.get(url, allow_redirects=True, stream=True)
     response.raise_for_status()
     
     total_size = int(response.headers.get('content-length', 0))
@@ -19,3 +26,36 @@ def download_file(url, local_path):
         for chunk in response.iter_content(chunk_size=block_size):
             file.write(chunk)
             progress_bar.update(len(chunk))
+
+
+def get_nlte_depgrid_info():
+    nlte_info_path = pkg_resources.resource_filename(__name__, '../../data/nlte_info.yml')
+    with open(nlte_info_path, "r") as fp:
+        nlte_info = yaml.load(fp, Loader=yaml.FullLoader)
+    return nlte_info
+
+def download_nlte_depgrid(element):
+    """
+    Downloads the NLTE departure coefficients for the given element from the MPIA Bergemann Group
+    From their Keeper.
+
+    :param element: Element for which to download the NLTE departure coefficients
+            See the list of available elements in tssynth/data/nlte_info.yml
+    """
+    if TSDEPCOEFF_PATH is None:
+        raise ValueError("Environment variable TSDEPCOEFF_PATH is not set.")
+    nlte_info = get_nlte_depgrid_info()
+    if element not in nlte_info:
+        raise ValueError(f"Element {element} not found in NLTE info file:\n{list(nlte_info.keys())}")
+    element_dir = os.path.join(TSDEPCOEFF_PATH, element)
+    os.makedirs(element_dir, exist_ok=True)
+    all_files = nlte_info[element]
+    for file in all_files:
+        local_path = os.path.join(TSDEPCOEFF_PATH, os.path.join(element,file))
+        if os.path.exists(local_path):
+            print(f"File {local_path} already exists. Skipping.")
+            continue
+        url = f"https://keeper.mpdl.mpg.de/d/6eaecbf95b88448f98a4/files/?p=%2Fdep-grids%2F{element}%2F{file}&dl=1"
+        print(f"Downloading {file} from {url} to {local_path} (May be very large!)")
+        download_file(url, local_path)
+        print(f"Downloaded {file} to {local_path}")
