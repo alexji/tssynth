@@ -2,7 +2,7 @@ import requests
 from tqdm import tqdm
 import os
 import yaml
-import pkg_resources
+from importlib.resources import files as resource_files
 
 TSDEPCOEFF_PATH = os.environ.get('TSDEPCOEFF_PATH', None)
 ALLMARCS_PATH = os.environ.get('ALLMARCS_PATH', None)
@@ -29,7 +29,8 @@ def download_file(url, local_path):
 
 
 def get_nlte_depgrid_info():
-    nlte_info_path = pkg_resources.resource_filename(__name__, '../../data/nlte_info.yml')
+    ## TODO: this is not recommended, but let's keep it for now...
+    nlte_info_path = resource_files('tssynth').joinpath('../../data/nlte_info.yml')
     with open(nlte_info_path, "r") as fp:
         nlte_info = yaml.load(fp, Loader=yaml.FullLoader)
     return nlte_info
