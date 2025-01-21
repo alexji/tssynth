@@ -75,12 +75,13 @@ def run_synth_lte(wmin, wmax, dw,
         ## Interpolate a model atmosphere and save into the twd
         model_atmosphere_file = os.path.join(twd, "marcs.interp")
         marcs.interpolate_marcs_model(Teff, logg, MH, model_atmosphere_file, spherical=spherical)
-        
+        is_marcsfile=False
     else:
         ## Specify a model atmosphere file
         assert model_atmosphere_file is not None, model_atmosphere_file
         assert os.path.exists(model_atmosphere_file), model_atmosphere_file
         Teff, logg, vt, MH, aFe, spherical = parse_model_atmosphere_file_params(model_atmosphere_file)
+        is_marcsfile=True
     
     ## Line List
     if linelist_filenames is None:
@@ -109,7 +110,7 @@ def run_synth_lte(wmin, wmax, dw,
                          modelopacname=None,
                          MH=MH, aFe=aFe, indiv_abu=indiv_abu,
                          vt=vt, spherical=spherical,
-                         marcsfile=True)
+                         is_marcsfile=is_marcsfile)
     if modelopac_file is None:
         try:
             modelopac_file = run_babsma_lu(**kws_babsma_lu)
@@ -134,17 +135,20 @@ def run_synth_lte(wmin, wmax, dw,
 
     ## Read the spectrum output
     turboOut= np.loadtxt(outfilename)
+    if len(turboOut) == 0:
+        raise RuntimeError("Turbospectrum output is empty: something did not work")
 
     wave = turboOut[:,0]
     norm = turboOut[:,1]
     flux = turboOut[:,2]
-    
+
+
     return wave, norm, flux
 
 def run_babsma_lu(twd, wmin, wmax, dwl,
                   modelfilename, modelopacname,
                   MH, aFe, indiv_abu, vt, spherical,
-                  marcsfile=True,
+                  is_marcsfile=True,
                   verbose=False):
     """
     - create babsma_lu parameter file
@@ -157,7 +161,7 @@ def run_babsma_lu(twd, wmin, wmax, dwl,
                     wmin,wmax,dwl,
                     None,
                     modelfilename,
-                    marcsfile,
+                    is_marcsfile,
                     modelopacname,
                     MH,
                     aFe,
@@ -200,7 +204,7 @@ def run_babsma_lu(twd, wmin, wmax, dwl,
     #    shutil.copy(modelopacname,modelopac)
     return modelopacname
 
-def run_bsyn_lu(twd, wmin, wmax, dwl, costheta, modelfilename, marcsfile, 
+def run_bsyn_lu(twd, wmin, wmax, dwl, costheta, modelfilename, is_marcsfile, 
                 modelopacname, MH, aFe, indiv_abu, vt, spherical,
                 isotopes, linelistfilenames, outfname=None, verbose=False):
     """
@@ -211,7 +215,7 @@ def run_bsyn_lu(twd, wmin, wmax, dwl, costheta, modelfilename, marcsfile,
                   wmin,wmax,dwl,
                   costheta,
                   modelfilename,
-                  marcsfile,
+                  is_marcsfile,
                   modelopacname,
                   MH,
                   aFe,

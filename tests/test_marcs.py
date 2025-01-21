@@ -54,7 +54,6 @@ def test_parse_marcs_model_3():
     for fname in fnames:
         header, model_structure = marcs.parse_marcs_model("/Users/alexji/lib/tssynth/tests/model_atmospheres/" + fname)
         
-
 def test_interpolation_1():
     ## interpolate away from any grid points
     # Teff, logg, MH
