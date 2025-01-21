@@ -181,3 +181,4 @@ data/marcs_standard_models.npz
 # This would replace the fortran interpolator but I don't really want to do it yet
 src/tssynth/marcs_interpol.py 
 **modele.sm
+.vscode/
