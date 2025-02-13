@@ -18,18 +18,14 @@ def test_simple_methods():
     assert MH == -2.0
     assert aFe == 0.4
     assert spherical == True
-    # linelistnames = synthesizer.get_default_linelist_filenames()
-    # assert len(linelistnames) == 15
-    # linelistnames = synthesizer.get_default_linelist_filenames(include_H=False)
-    # assert len(linelistnames) == 14
-    # linelistnames = synthesizer.get_vald_linelist_filenames()
-    # assert len(linelistnames) == 14
-    # linelistnames = synthesizer.get_vald_linelist_filenames(include_H=False)
-    # assert len(linelistnames) == 13
     linelistnames = synthesizer.get_default_linelist_filenames()
-    assert len(linelistnames) == 6
+    assert len(linelistnames) == 8
+    for fname in linelistnames:
+        assert os.path.exists(fname), fname
     linelistnames = synthesizer.get_default_linelist_filenames(include_H=False)
-    assert len(linelistnames) == 5
+    assert len(linelistnames) == 7
+    for fname in linelistnames:
+        assert os.path.exists(fname), fname
 
 def test_run_synth_lte_quick_1():
     wmin, wmax, dw = 5090, 5100, 0.05
