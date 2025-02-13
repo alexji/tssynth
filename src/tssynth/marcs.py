@@ -209,7 +209,7 @@ def interpolate_marcs_model(Teff, logg, MH, outpath, spherical=True):
     massstr = "1.0" if spherical else "0.0"
     
     ## Search through input model atmospheres for models to interpolate
-    fnames = np.sort(glob.glob(f"{ALLMARCS_PATH}/{sstr}*_st_*.mod"))
+    fnames = np.sort(glob.glob(f"{ALLMARCS_PATH}/{sstr}*_t02_st_*.mod"))
     def parse_marcs_filenames(fname):
         """
         Parses the MARCS filenames to extract the stellar parameters.
@@ -241,82 +241,157 @@ def interpolate_marcs_model(Teff, logg, MH, outpath, spherical=True):
     return outpath
 
 def _find_surrounding_points(marcspoints, Teff, logg, MH, max_expansions=99):
-    # Extract unique values for each axis
+    """
+    Find the 8 surrounding points for interpolation in a 3D grid.
+
+    Parameters:
+    -----------
+    marcspoints : ndarray
+        Array of available grid points with shape (N, 3), where each row is [Teff, logg, MH].
+    Teff : float
+        Target effective temperature.
+    logg : float
+        Target surface gravity.
+    MH : float
+        Target metallicity.
+    max_expansions : int, optional
+        Maximum number of expansions to search for surrounding points. Default is 99.
+
+    Returns:
+    --------
+    ndarray
+        Array of 8 surrounding points, each row is [Teff, logg, MH].
+    
+    Raises:
+    -------
+    RuntimeError
+        If 8 surrounding points are not found after the maximum number of expansions.
+    """
     unique_Teffs = np.unique(marcspoints[:, 0])
     unique_loggs = np.unique(marcspoints[:, 1])
     unique_MHs = np.unique(marcspoints[:, 2])
-    
-    # Initial indices for lower and upper bounds
-    Teff_lower_idx = np.where(unique_Teffs <= Teff)[0].max()
-    Teff_upper_idx = np.where(unique_Teffs >= Teff)[0].min()
-    logg_lower_idx = np.where(unique_loggs <= logg)[0].max()
-    logg_upper_idx = np.where(unique_loggs >= logg)[0].min()
-    MH_lower_idx = np.where(unique_MHs <= MH)[0].max()
-    MH_upper_idx = np.where(unique_MHs >= MH)[0].min()
 
-    # Initialize points and flags
-    points = []
-    found = False
+    def find_bounds(values, target):
+        """Find lower and upper bounds for a target value in sorted values."""
+        lower_idx = np.searchsorted(values, target, side="right") - 1
+        upper_idx = lower_idx + 1
 
+        lower_idx = max(lower_idx, 0)
+        upper_idx = min(upper_idx, len(values) - 1)
+        return values[lower_idx], values[upper_idx]
+
+    # Initial bounds for Teff, logg, and MH
+    Teff_lower, Teff_upper = find_bounds(unique_Teffs, Teff)
+    logg_lower, logg_upper = find_bounds(unique_loggs, logg)
+    MH_lower, MH_upper = find_bounds(unique_MHs, MH)
+
+    points = set()
     num_expansions = 0
-    while not found:
-        # Try to gather points from the current cuboid
-        failures = []
-        for ix in [Teff_lower_idx, Teff_upper_idx]:
-            for iy in [logg_lower_idx, logg_upper_idx]:
-                for iz in [MH_lower_idx, MH_upper_idx]:
-                    candidate = (unique_Teffs[ix], unique_loggs[iy], unique_MHs[iz])
+
+    while len(points) < 8:
+        # Gather potential points
+        for T in [Teff_lower, Teff_upper]:
+            for g in [logg_lower, logg_upper]:
+                for m in [MH_lower, MH_upper]:
+                    candidate = (T, g, m)
                     if candidate in marcspoints:
-                        points.append(candidate)
-                    else:
-                        failures.append((ix, iy, iz))
+                        points.add(candidate)
 
         if len(points) == 8:
-            found = True
             break
 
-        # If not all points found, analyze failures and expand the cuboid incrementally
-        n_faces = 6  # 2 faces for each of Teff, logg, MH
-        failures_per_face = []
-        for face_no in range(n_faces):
-            failure_count = 0
-            parameter_no = face_no // 2  # Which parameter (Teff/logg/MH)
-            option_no = face_no % 2      # Which face (lower/upper)
-            for (ix, iy, iz) in failures:
-                vertex_face_check = [
-                    ix == Teff_lower_idx if option_no == 0 else ix == Teff_upper_idx,
-                    iy == logg_lower_idx if option_no == 0 else iy == logg_upper_idx,
-                    iz == MH_lower_idx if option_no == 0 else iz == MH_upper_idx,
-                ]
-                if vertex_face_check[parameter_no]:
-                    failure_count += 1
-            failures_per_face.append((failure_count, parameter_no, option_no))
-
-        # Find the face with the most failures and expand it
-        failures_per_face.sort(key=lambda x: x[0], reverse=True)
-        _, parameter_no, option_no = failures_per_face[0]
-
-        # Expand the face
-        if parameter_no == 0:  # Teff
-            if option_no == 0:  # Lower face
-                Teff_lower_idx = max(Teff_lower_idx - 1, 0)
-            else:  # Upper face
-                Teff_upper_idx = min(Teff_upper_idx + 1, len(unique_Teffs) - 1)
-        elif parameter_no == 1:  # logg
-            if option_no == 0:  # Lower face
-                logg_lower_idx = max(logg_lower_idx - 1, 0)
-            else:  # Upper face
-                logg_upper_idx = min(logg_upper_idx + 1, len(unique_loggs) - 1)
-        elif parameter_no == 2:  # MH
-            if option_no == 0:  # Lower face
-                MH_lower_idx = max(MH_lower_idx - 1, 0)
-            else:  # Upper face
-                MH_upper_idx = min(MH_upper_idx + 1, len(unique_MHs) - 1)
+        # Expand search bounds if needed
+        if num_expansions >= max_expansions:
+            raise RuntimeError(f"Failed to find 8 surrounding points after {max_expansions} expansions.")
+        
         num_expansions += 1
-        if num_expansions > max_expansions:
-            raise RuntimeError(f"Failed to find surrounding points after {max_expansions} face expansions; {Teff}, {logg}, {MH}.")
 
-    return np.array(points)
+        # Expand bounds incrementally
+        Teff_lower = max(Teff_lower - 1, unique_Teffs[0])
+        Teff_upper = min(Teff_upper + 1, unique_Teffs[-1])
+        logg_lower = max(logg_lower - 1, unique_loggs[0])
+        logg_upper = min(logg_upper + 1, unique_loggs[-1])
+        MH_lower = max(MH_lower - 1, unique_MHs[0])
+        MH_upper = min(MH_upper + 1, unique_MHs[-1])
+
+    return np.array(list(points))
+# def _find_surrounding_points(marcspoints, Teff, logg, MH, max_expansions=99):
+#     # Extract unique values for each axis
+#     unique_Teffs = np.unique(marcspoints[:, 0])
+#     unique_loggs = np.unique(marcspoints[:, 1])
+#     unique_MHs = np.unique(marcspoints[:, 2])
+    
+#     # Initial indices for lower and upper bounds
+#     Teff_lower_idx = np.where(unique_Teffs <= Teff)[0].max()
+#     Teff_upper_idx = np.where(unique_Teffs >= Teff)[0].min()
+#     logg_lower_idx = np.where(unique_loggs <= logg)[0].max()
+#     logg_upper_idx = np.where(unique_loggs >= logg)[0].min()
+#     MH_lower_idx = np.where(unique_MHs <= MH)[0].max()
+#     MH_upper_idx = np.where(unique_MHs >= MH)[0].min()
+
+#     # Initialize points and flags
+#     points = []
+#     found = False
+
+#     num_expansions = 0
+#     while not found:
+#         # Try to gather points from the current cuboid
+#         failures = []
+#         for ix in [Teff_lower_idx, Teff_upper_idx]:
+#             for iy in [logg_lower_idx, logg_upper_idx]:
+#                 for iz in [MH_lower_idx, MH_upper_idx]:
+#                     candidate = (unique_Teffs[ix], unique_loggs[iy], unique_MHs[iz])
+#                     if candidate in marcspoints:
+#                         points.append(candidate)
+#                     else:
+#                         failures.append((ix, iy, iz))
+
+#         if len(points) == 8:
+#             found = True
+#             break
+
+#         # If not all points found, analyze failures and expand the cuboid incrementally
+#         n_faces = 6  # 2 faces for each of Teff, logg, MH
+#         failures_per_face = []
+#         for face_no in range(n_faces):
+#             failure_count = 0
+#             parameter_no = face_no // 2  # Which parameter (Teff/logg/MH)
+#             option_no = face_no % 2      # Which face (lower/upper)
+#             for (ix, iy, iz) in failures:
+#                 vertex_face_check = [
+#                     ix == Teff_lower_idx if option_no == 0 else ix == Teff_upper_idx,
+#                     iy == logg_lower_idx if option_no == 0 else iy == logg_upper_idx,
+#                     iz == MH_lower_idx if option_no == 0 else iz == MH_upper_idx,
+#                 ]
+#                 if vertex_face_check[parameter_no]:
+#                     failure_count += 1
+#             failures_per_face.append((failure_count, parameter_no, option_no))
+
+#         # Find the face with the most failures and expand it
+#         failures_per_face.sort(key=lambda x: x[0], reverse=True)
+#         _, parameter_no, option_no = failures_per_face[0]
+
+#         # Expand the face
+#         if parameter_no == 0:  # Teff
+#             if option_no == 0:  # Lower face
+#                 Teff_lower_idx = max(Teff_lower_idx - 1, 0)
+#             else:  # Upper face
+#                 Teff_upper_idx = min(Teff_upper_idx + 1, len(unique_Teffs) - 1)
+#         elif parameter_no == 1:  # logg
+#             if option_no == 0:  # Lower face
+#                 logg_lower_idx = max(logg_lower_idx - 1, 0)
+#             else:  # Upper face
+#                 logg_upper_idx = min(logg_upper_idx + 1, len(unique_loggs) - 1)
+#         elif parameter_no == 2:  # MH
+#             if option_no == 0:  # Lower face
+#                 MH_lower_idx = max(MH_lower_idx - 1, 0)
+#             else:  # Upper face
+#                 MH_upper_idx = min(MH_upper_idx + 1, len(unique_MHs) - 1)
+#         num_expansions += 1
+#         if num_expansions > max_expansions:
+#             raise RuntimeError(f"Failed to find surrounding points after {max_expansions} face expansions; {Teff}, {logg}, {MH}.")
+
+#     return np.array(points)
 
 def _run_interpolator_lte(Teff, logg, MH, marcs_model_list,
                         outpath, verbose=False):

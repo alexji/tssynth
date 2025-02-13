@@ -1,6 +1,5 @@
 import numpy as np
 import os, sys, shutil
-import tempfile
 import subprocess
 from . import utils, marcs
 
