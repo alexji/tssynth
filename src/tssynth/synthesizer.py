@@ -84,7 +84,7 @@ def run_synth_lte(wmin, wmax, dw,
     
     ## Line List
     if linelist_filenames is None:
-        linelist_filenames = get_default_linelist_filenames()
+        linelist_filenames = get_vald_linelist_filenames() #get_default_linelist_filenames()
     elif isinstance(linelist_filenames, str):
         linelist_filenames = [linelist_filenames]
     # check they're all here
@@ -277,6 +277,9 @@ def _write_script(scriptfilename,
                   bsyn=False):
     """Write the script file for babsma and bsyn"""
     with open(scriptfilename,'w') as scriptfile:
+        #scriptfile.write("'PURE-LTE:'  '.false.'\n")
+        #scriptfile.write("'NLTE:'  '.false.'\n")
+        #scriptfile.write("'NLTEINFOFILE:'  '{}/SPECIES_LTE_NLTE_00000000.dat'\n".format(TSDEPCOEFF_PATH))
         scriptfile.write("'LAMBDA_MIN:'  '%.3f'\n" % wmin)
         scriptfile.write("'LAMBDA_MAX:'  '%.3f'\n" % wmax)
         scriptfile.write("'LAMBDA_STEP:' '%.3f'\n" % dw)
@@ -341,7 +344,34 @@ def parse_model_atmosphere_file_params(model_atmosphere_file):
     spherical = header["spherical"]
     return Teff, logg, vt, MH, aFe, spherical
 
-def get_default_linelist_filenames(include_H=True):
+def get_default_linelist_filenames(include_H=True, wmin=None, wmax=None):
+    """
+    Default linelists based on TSFitPy. This is GES for 4200-9200, VALD fills 3700-4200 and 9200-9800.
+    I also added molecular lines for CH, NH, CN, and CC.
+    https://keeper.mpdl.mpg.de/d/6eaecbf95b88448f98a4/?p=%2Flinelist&mode=list
+    
+    TODO use wmin and wmax to cut lines appropriately
+    """
+    fnames = ["nlte_ges_linelist_jmg04sep2023_I_II",
+        "vald-3700-3800-for-grid-nlte-04sep2023",
+        "vald-3800-4200-for-grid-nlte-04sep2023",
+        "vald-9200-9300-for-grid-nlte-04sep2023",
+        "vald-9300-9800-for-grid-nlte-04sep2023",
+        # "12C12C_GESv5.bsyn",
+        # "12C13C_GESv5.bsyn",
+        # "12C14N_GESv5.bsyn",
+        # "12C15N_GESv5.bsyn",
+        "12CH_GESv5.bsyn",
+        # "13C13C_GESv5.bsyn",
+        # "13C14N_GESv5.bsyn",
+        "13CH_GESv5.bsyn",
+        # "14NH_GESv5.bsyn",
+    ]
+    if include_H:
+        fnames.append("Hlinedata")
+    return [os.path.join(TSLINELIST_PATH, x) for x in fnames]
+
+def get_vald_linelist_filenames(include_H=True):
     """
     Default VALD linelists from TSFitPy
     Searches in path TSLINELIST_PATH
@@ -362,4 +392,4 @@ def get_default_linelist_filenames(include_H=True):
     ]
     if include_H:
         fnames.append("Hlinedata")
-    return [os.path.join(TSLINELIST_PATH, x) for x in fnames]
+    return [os.path.join("/Users/alexji/lib/tssynth/data/linelists_vald/", x) for x in fnames]
