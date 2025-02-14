@@ -1,6 +1,11 @@
 # tssynth
 Python wrapper for running turbospectrum (in LTE and NLTE)
 
+Authors and Contributors
+-------
+ - Alex Ji (University of Chicago, main author)
+ - TSFitPy Contributors (from which much of the code is based): Nick Storm, Jeffrey Gerber. Please see https://github.com/TSFitPy-developers/TSFitPy/ for citations.
+
 ## Installation
 - Install https://github.com/bertrandplez/Turbospectrum_NLTE
   - Make sure you have `gfortran` in your path
