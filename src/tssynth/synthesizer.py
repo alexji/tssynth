@@ -2,6 +2,8 @@ import numpy as np
 import os, sys, shutil
 import subprocess
 from . import utils, marcs
+from .solar_abundances import solar_abundances
+from copy import deepcopy
 
 TSEXEC_PATH = os.environ.get('TSEXEC_PATH', None)
 TSDATA_PATH = os.environ.get('TSDATA_PATH', os.path.join(TSEXEC_PATH, '../DATA'))
@@ -84,7 +86,7 @@ def run_synth_lte(wmin, wmax, dw,
     
     ## Line List
     if linelist_filenames is None:
-        linelist_filenames = get_vald_linelist_filenames() #get_default_linelist_filenames()
+        linelist_filenames = get_default_linelist_filenames()
     elif isinstance(linelist_filenames, str):
         linelist_filenames = [linelist_filenames]
     # check they're all here
@@ -277,9 +279,10 @@ def _write_script(scriptfilename,
                   bsyn=False):
     """Write the script file for babsma and bsyn"""
     with open(scriptfilename,'w') as scriptfile:
-        #scriptfile.write("'PURE-LTE:'  '.false.'\n")
-        #scriptfile.write("'NLTE:'  '.false.'\n")
-        #scriptfile.write("'NLTEINFOFILE:'  '{}/SPECIES_LTE_NLTE_00000000.dat'\n".format(TSDEPCOEFF_PATH))
+        scriptfile.write("'PURE-LTE : '  '.true.'\n")
+        if bsyn:
+            scriptfile.write("'NLTE : '  '.false.'\n")
+            scriptfile.write("'NLTEINFOFILE : '  '{}/SPECIES_LTE_NLTE_00000000.dat'\n".format(TSDEPCOEFF_PATH))
         scriptfile.write("'LAMBDA_MIN:'  '%.3f'\n" % wmin)
         scriptfile.write("'LAMBDA_MAX:'  '%.3f'\n" % wmax)
         scriptfile.write("'LAMBDA_STEP:' '%.3f'\n" % dw)
@@ -303,6 +306,8 @@ def _write_script(scriptfilename,
         scriptfile.write("'R-PROCESS  :'    '0.00'\n")
         scriptfile.write("'S-PROCESS  :'    '0.00'\n")
         # Individual abundances
+        abundances = deepcopy(solar_abundances)
+        abundances.update(indiv_abu)
         nabu= len(indiv_abu)
         if nabu > 0:
             scriptfile.write("'INDIVIDUAL ABUNDANCES:'   '%i'\n" % nabu)
@@ -327,9 +332,9 @@ def _write_script(scriptfilename,
             scriptfile.write("300.00\n")
             scriptfile.write("15\n")
             scriptfile.write("1.30\n")
-        else:
-            scriptfile.write("'XIFIX:' 'T'\n")
-            scriptfile.write("%.3f\n" % vmicro)
+        # else:
+        scriptfile.write("'XIFIX:' 'T'\n")
+        scriptfile.write("%.3f\n" % vmicro)
     return None
 
 def parse_model_atmosphere_file_params(model_atmosphere_file):
@@ -354,7 +359,7 @@ def get_default_linelist_filenames(include_H=True, wmin=None, wmax=None):
     """
     fnames = ["nlte_ges_linelist_jmg04sep2023_I_II",
         "vald-3700-3800-for-grid-nlte-04sep2023",
-        "vald-3800-4200-for-grid-nlte-04sep2023",
+        #"vald-3800-4200-for-grid-nlte-04sep2023",
         "vald-9200-9300-for-grid-nlte-04sep2023",
         "vald-9300-9800-for-grid-nlte-04sep2023",
         # "12C12C_GESv5.bsyn",
