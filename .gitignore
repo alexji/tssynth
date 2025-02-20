@@ -182,3 +182,4 @@ data/marcs_standard_models.npz
 src/tssynth/marcs_interpol.py 
 **modele.sm
 .vscode/
+data/linelists_chitigrid/*

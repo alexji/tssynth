@@ -2,8 +2,7 @@ import numpy as np
 import os, sys, shutil
 import subprocess
 from . import utils, marcs
-from .solar_abundances import solar_abundances
-from copy import deepcopy
+from .solar_abundances import solar_abundances_Z
 
 TSEXEC_PATH = os.environ.get('TSEXEC_PATH', None)
 TSDATA_PATH = os.environ.get('TSDATA_PATH', os.path.join(TSEXEC_PATH, '../DATA'))
@@ -19,7 +18,7 @@ def run_synth_lte(wmin, wmax, dw,
                   XFedict=None, 
                   modelopac_file=None,
                   twd=None, delete_twd=False,
-                  spherical=None):
+                  spherical=None, verbose=False):
     """
     Run LTE spectrum synthesis with Turbospectrum.
 
@@ -111,7 +110,8 @@ def run_synth_lte(wmin, wmax, dw,
                          modelopacname=None,
                          MH=MH, aFe=aFe, indiv_abu=indiv_abu,
                          vt=vt, spherical=spherical,
-                         is_marcsfile=is_marcsfile)
+                         is_marcsfile=is_marcsfile,
+                         verbose=verbose)
     if modelopac_file is None:
         try:
             modelopac_file = run_babsma_lu(**kws_babsma_lu)
@@ -279,7 +279,6 @@ def _write_script(scriptfilename,
                   bsyn=False):
     """Write the script file for babsma and bsyn"""
     with open(scriptfilename,'w') as scriptfile:
-        scriptfile.write("'PURE-LTE : '  '.true.'\n")
         if bsyn:
             scriptfile.write("'NLTE : '  '.false.'\n")
             scriptfile.write("'NLTEINFOFILE : '  '{}/SPECIES_LTE_NLTE_00000000.dat'\n".format(TSDEPCOEFF_PATH))
@@ -305,14 +304,21 @@ def _write_script(scriptfilename,
         scriptfile.write("'HELIUM     :'    '0.00'\n")
         scriptfile.write("'R-PROCESS  :'    '0.00'\n")
         scriptfile.write("'S-PROCESS  :'    '0.00'\n")
-        # Individual abundances
-        abundances = deepcopy(solar_abundances)
-        abundances.update(indiv_abu)
-        nabu= len(indiv_abu)
-        if nabu > 0:
-            scriptfile.write("'INDIVIDUAL ABUNDANCES:'   '%i'\n" % nabu)
-            for abu in indiv_abu:
-                scriptfile.write("%i %.3f\n" % (abu,indiv_abu[abu]))
+        # Individual abundances: specify everything
+        # It matters for continuum opacities too
+        abundances = {}
+        for Z, abund in solar_abundances_Z.items():
+            if Z in [1,2]: continue # skip H and He
+            abundances[Z] = abund + metals
+        # Update using any specified individual abundances
+        for Z, abund in indiv_abu.items():
+            if Z in abundances: abundances[Z] = abund
+            else: raise ValueError("indiv_abu has Z not in solar! {Z}")
+        nabu= len(abundances)
+        #if nabu > 0:
+        scriptfile.write("'INDIVIDUAL ABUNDANCES:'   '%i'\n" % nabu)
+        for abu in abundances:
+            scriptfile.write("%i %.3f\n" % (abu,abundances[abu]))
         if bsyn:
             niso= len(isotopes)
             if niso > 0:
@@ -352,24 +358,25 @@ def parse_model_atmosphere_file_params(model_atmosphere_file):
 def get_default_linelist_filenames(include_H=True, wmin=None, wmax=None):
     """
     Default linelists based on TSFitPy. This is GES for 4200-9200, VALD fills 3700-4200 and 9200-9800.
-    I also added molecular lines for CH, NH, CN, and CC.
+    I also added molecular lines for C to GES.
     https://keeper.mpdl.mpg.de/d/6eaecbf95b88448f98a4/?p=%2Flinelist&mode=list
     
     TODO use wmin and wmax to cut lines appropriately
+    TODO add a check for maximum number of lines allowable by Turbospectrum as it gets to be a lot
     """
     fnames = ["nlte_ges_linelist_jmg04sep2023_I_II",
         "vald-3700-3800-for-grid-nlte-04sep2023",
-        #"vald-3800-4200-for-grid-nlte-04sep2023",
+        #"vald-3800-4200-for-grid-nlte-04sep2023", # This one is broken! Not sure why.
         "vald-9200-9300-for-grid-nlte-04sep2023",
         "vald-9300-9800-for-grid-nlte-04sep2023",
         # "12C12C_GESv5.bsyn",
         # "12C13C_GESv5.bsyn",
         # "12C14N_GESv5.bsyn",
         # "12C15N_GESv5.bsyn",
-        "12CH_GESv5.bsyn",
+        #"12CH_GESv5.bsyn",
         # "13C13C_GESv5.bsyn",
         # "13C14N_GESv5.bsyn",
-        "13CH_GESv5.bsyn",
+        #"13CH_GESv5.bsyn",
         # "14NH_GESv5.bsyn",
     ]
     if include_H:

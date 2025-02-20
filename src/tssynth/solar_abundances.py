@@ -243,3 +243,8 @@ periodic_table = [
     "Fr", "Ra", "Ac", "Th", "Pa", "U"]
 
 molecules_atomic_number = {"CH": ["0106.000000", "C H"], "CN": ["0607.000000", "C N"]}
+
+solar_abundances_Z = {}
+for Z,elem in enumerate(periodic_table):
+    if elem in solar_abundances:
+        solar_abundances_Z[Z] = solar_abundances[elem]
