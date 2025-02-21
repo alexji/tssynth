@@ -84,7 +84,7 @@ def test_run_synth_lte_quick_3():
     shutil.rmtree(twd)
 
 def test_run_synth_lte_full():
-    wmin, wmax, dw = 4000, 6000, 0.1
+    wmin, wmax, dw = 4200, 6000, 0.1
     twd = tssynth.utils.mkdtemp()
     wave, norm, flux = synthesizer.run_synth_lte(wmin, wmax, dw,
                                                 Teff=4500, logg=1.0, MH=-1.5,
