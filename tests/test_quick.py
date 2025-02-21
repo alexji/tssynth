@@ -58,8 +58,33 @@ def test_run_synth_lte_quick_2():
     assert len(wave) == len(norm) == len(flux) == round((wmax-wmin)/dw) + 1
     shutil.rmtree(twd)
 
-def test_run_synth_lte_full():
+def test_run_synth_lte_quick_3():
     wmin, wmax, dw = 5000, 5100, 0.1
+    twd = tssynth.utils.mkdtemp()
+    wave, norm, flux = synthesizer.run_synth_lte(wmin, wmax, dw,
+                                                Teff=4500, logg=1.0, MH=-1.5,
+                                                twd=twd)
+    fname = os.path.join(os.path.dirname(__file__), "spectra", "spectrum_0_LTE.spec")
+    wavecomp, normcomp, fluxcomp = np.loadtxt(fname).T
+    ii = (wavecomp >= wmin) & (wavecomp <= wmax)
+    wavecomp, normcomp, fluxcomp = wavecomp[ii], normcomp[ii], fluxcomp[ii]
+    check_wave = np.allclose(wave, wavecomp, atol=0.01)
+    check_norm = np.allclose(norm, normcomp, atol=0.005)
+    check_flux = np.allclose(flux, fluxcomp, rtol=0.005)
+    errors = ""
+    if not check_wave:
+        errors += f"waves do not match; "
+    if not check_norm:
+        diff = np.abs(norm-normcomp)
+        errors += f"norms do not match, max err {diff.max()}, {np.sum(diff>0.005)}/{len(diff)} pixels failed; "
+    if not check_flux:
+        ratio = np.abs(flux/fluxcomp)-1
+        errors += f"fluxes do not match, max relerr {(np.abs(ratio).max())}, {np.sum(np.abs(ratio)>0.005)}/{len(ratio)} pixels failed; "
+    assert check_wave and check_norm and check_flux, errors
+    shutil.rmtree(twd)
+
+def test_run_synth_lte_full():
+    wmin, wmax, dw = 4000, 6000, 0.1
     twd = tssynth.utils.mkdtemp()
     wave, norm, flux = synthesizer.run_synth_lte(wmin, wmax, dw,
                                                 Teff=4500, logg=1.0, MH=-1.5,

@@ -309,7 +309,12 @@ def _write_script(scriptfilename,
         abundances = {}
         for Z, abund in solar_abundances_Z.items():
             if Z in [1,2]: continue # skip H and He
-            abundances[Z] = abund + metals
+            ## TSFitPy does NOT do this
+            #elif Z in [8, 10, 12, 14, 16, 18, 20, 22]:
+            #    # According to Gustaffson+2008
+            #    # The abundances of so-called α elements O, Ne, Mg, Si, S, Ar, Ca, and Ti, so I modify those
+            #    abundances[Z] = abund + metals + alphafe
+            else: abundances[Z] = abund + metals
         # Update using any specified individual abundances
         for Z, abund in indiv_abu.items():
             if Z in abundances: abundances[Z] = abund
