@@ -5,6 +5,7 @@ import yaml
 from importlib.resources import files as resource_files
 import zipfile
 import time
+import glob
 
 TSDEPCOEFF_PATH = os.environ.get('TSDEPCOEFF_PATH', None)
 ALLMARCS_PATH = os.environ.get('ALLMARCS_PATH', None)
@@ -89,3 +90,10 @@ def download_model_atmospheres():
         zip_ref.extractall(ALLMARCS_PATH)
     end_time = time.time()
     print(f"Unzipping completed in {end_time - start_time:.2f} seconds.")
+
+    fnames = glob.glob(os.path.join(ALLMARCS_PATH, "marcs_standard_comp/*.mod"))
+    for fname in fnames:
+        new_fname = fname.replace("marcs_standard_comp/", "")
+        os.rename(fname, new_fname)
+    print(f"Moved all files into {ALLMARCS_PATH}, now removing the downloaded zip file")
+    os.remove(local_path)
