@@ -1,6 +1,6 @@
 import requests
 from tqdm import tqdm
-import os
+import os, shutil
 import yaml
 from importlib.resources import files as resource_files
 import zipfile
@@ -91,9 +91,10 @@ def download_model_atmospheres():
     end_time = time.time()
     print(f"Unzipping completed in {end_time - start_time:.2f} seconds.")
 
-    fnames = glob.glob(os.path.join(ALLMARCS_PATH, "marcs_standard_comp/*.mod"))
+    fnames = glob.glob(os.path.join(ALLMARCS_PATH, "marcs_standard_comp/*"))
     for fname in fnames:
         new_fname = fname.replace("marcs_standard_comp/", "")
         os.rename(fname, new_fname)
     print(f"Moved all files into {ALLMARCS_PATH}, now removing the downloaded zip file")
     os.remove(local_path)
+    shutil.rmtree(os.path.join(ALLMARCS_PATH,"marcs_standard_comp"))
